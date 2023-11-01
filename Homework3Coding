@@ -1,1 +1,67 @@
 
+import csv
+from tkinter import filedialog
+from tkinter import Tk
+import matplotlib.pyplot as plt
+from collections import defaultdict
+
+# Open dialog to choose CSV file
+Tk().withdraw()
+file_path = filedialog.askopenfilename()
+
+# Read CSV file into a list of dictionaries
+with open(file_path, 'r') as file:
+    reader = csv.DictReader(file)
+    data = [row for row in reader]
+
+# Display the number of unique values in each column
+unique_values = {field: len(set([row[field] for row in data])) for field in reader.fieldnames}
+print("Unique values for each column:", unique_values)
+
+# Display all rows of data that Python displays by default
+print("All rows of data:", data)
+
+# Display first and last five rows and first and last four columns
+print("First 5 rows:", data[:5])
+print("Last 5 rows:", data[-5:])
+print("First 4 columns:", [{k: v for k, v in list(row.items())[:4]} for row in data])
+print("Last 4 columns:", [{k: v for k, v in list(row.items())[-4:]} for row in data])
+
+# Access and display first five rows of any three columns
+selected_columns = [(data[i]['Date'], data[i]['AveragePrice'], data[i]['Total Volume']) for i in range(5)]
+print("Selected columns:", selected_columns)
+
+# Access one column with dot notation
+total_volume_column = [float(row['Total Volume']) for row in data]
+
+# Multiply Total Volume and AveragePrice and store in new column
+for row in data:
+    row['EstimatedRevenue'] = float(row['Total Volume']) * float(row['AveragePrice'])
+
+print("First 5 rows with EstimatedRevenue:", data[:5])
+
+# Group by region and type and calculate average price
+grouped_data = defaultdict(list)
+for row in data:
+    grouped_data[(row['region'], row['type'])].append(float(row['AveragePrice']))
+
+average_prices = {(region, type_): sum(prices) / len(prices) for (region, type_), prices in grouped_data.items()}
+print("Average prices by region and type:", average_prices)
+
+# Display mean, median, and standard deviation of Total Volume by year
+years = list(set(row['year'] for row in data))
+yearly_volumes = {year: [float(row['Total Volume']) for row in data if row['year'] == year] for year in years}
+
+means = {year: sum(volumes) / len(volumes) for year, volumes in yearly_volumes.items()}
+medians = {year: sorted(volumes)[len(volumes) // 2] for year, volumes in yearly_volumes.items()}
+std_devs = {year: (sum([(v - means[year]) ** 2 for v in volumes]) / len(volumes)) ** 0.5 for year, volumes in yearly_volumes.items()}
+
+plt.bar(years, means.values(), label='Mean')
+plt.bar(years, medians.values(), label='Median', bottom=list(means.values()))
+plt.bar(years, std_devs.values(), label='Std Dev', bottom=[means[year] + medians[year] for year in years])
+plt.legend()
+plt.show()
+
+
+
+
