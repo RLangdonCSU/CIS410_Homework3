@@ -1,67 +1,62 @@
 
-import csv
-from tkinter import filedialog
-from tkinter import Tk
+import pandas as pd
 import matplotlib.pyplot as plt
-from collections import defaultdict
+from tkinter import Tk, filedialog
 
-# Open dialog to choose CSV file
+# Select CSV file
 Tk().withdraw()
-file_path = filedialog.askopenfilename()
+filename = filedialog.askopenfilename()
 
-# Read CSV file into a list of dictionaries
-with open(file_path, 'r') as file:
-    reader = csv.DictReader(file)
-    data = [row for row in reader]
+# Read data
+data = pd.read_csv(filename)
 
-# Display the number of unique values in each column
-unique_values = {field: len(set([row[field] for row in data])) for field in reader.fieldnames}
-print("Unique values for each column:", unique_values)
+# Info
+print(data.info())
 
-# Display all rows of data that Python displays by default
-print("All rows of data:", data)
+# Unique values per column
+print(data.nunique())
 
-# Display first and last five rows and first and last four columns
-print("First 5 rows:", data[:5])
-print("Last 5 rows:", data[-5:])
-print("First 4 columns:", [{k: v for k, v in list(row.items())[:4]} for row in data])
-print("Last 4 columns:", [{k: v for k, v in list(row.items())[-4:]} for row in data])
+# Default JupyterLab rows
+print(data.head())
+print(data.tail())
 
-# Access and display first five rows of any three columns
-selected_columns = [(data[i]['Date'], data[i]['AveragePrice'], data[i]['Total Volume']) for i in range(5)]
-print("Selected columns:", selected_columns)
+# Subset of rows and columns
+print(data.iloc[:5, :4])
+print(data.iloc[-5:, -4:])
 
-# Access one column with dot notation
-total_volume_column = [float(row['Total Volume']) for row in data]
+# Select columns
+selected_columns = data[['Date', 'AveragePrice', 'Total Volume']].head()
+print(selected_columns)
 
-# Multiply Total Volume and AveragePrice and store in new column
-for row in data:
-    row['EstimatedRevenue'] = float(row['Total Volume']) * float(row['AveragePrice'])
+# Dot notation access
+print(data.AveragePrice.head())
 
-print("First 5 rows with EstimatedRevenue:", data[:5])
+# New column calculation
+data['EstimatedRevenue'] = data['Total Volume'] * data['AveragePrice']
+print(data[['Total Volume', 'AveragePrice', 'EstimatedRevenue']].head())
 
-# Group by region and type and calculate average price
-grouped_data = defaultdict(list)
-for row in data:
-    grouped_data[(row['region'], row['type'])].append(float(row['AveragePrice']))
+# Grouped average price
+grouped_avg_price = data.groupby(['region', 'type'])['AveragePrice'].mean().reset_index()
+print(grouped_avg_price.head())
 
-average_prices = {(region, type_): sum(prices) / len(prices) for (region, type_), prices in grouped_data.items()}
-print("Average prices by region and type:", average_prices)
-
-# Display mean, median, and standard deviation of Total Volume by year
-years = list(set(row['year'] for row in data))
-yearly_volumes = {year: [float(row['Total Volume']) for row in data if row['year'] == year] for year in years}
-
-means = {year: sum(volumes) / len(volumes) for year, volumes in yearly_volumes.items()}
-medians = {year: sorted(volumes)[len(volumes) // 2] for year, volumes in yearly_volumes.items()}
-std_devs = {year: (sum([(v - means[year]) ** 2 for v in volumes]) / len(volumes)) ** 0.5 for year, volumes in yearly_volumes.items()}
-
-plt.bar(years, means.values(), label='Mean')
-plt.bar(years, medians.values(), label='Median', bottom=list(means.values()))
-plt.bar(years, std_devs.values(), label='Std Dev', bottom=[means[year] + medians[year] for year in years])
-plt.legend()
+# Total Volume stats plot by year
+data['year'] = pd.to_datetime(data['Date']).dt.year
+volume_stats_by_year = data.groupby('year')['Total Volume'].agg(['mean', 'median', 'std'])
+volume_stats_by_year.plot(kind='bar', yerr='std')
+plt.ylabel('Total Volume')
 plt.show()
 
+# Total bags by type DataFrame
+bags_total_by_type = data.groupby('type')[['Small Bags', 'Large Bags', 'XLarge Bags']].sum()
+print(bags_total_by_type)
 
+# Bags by type plot
+bags_total_by_type.plot(kind='bar')
+plt.ylabel('Number of Bags')
+plt.show()
 
-
+# Scatter plot for Total Volume vs. AveragePrice
+plt.scatter(data['Total Volume'], data['AveragePrice'])
+plt.xlabel('Total Volume')
+plt.ylabel('Average Price')
+plt.show()
