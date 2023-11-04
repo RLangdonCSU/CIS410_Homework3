@@ -1,77 +1,90 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 from tkinter import filedialog
 from tkinter import Tk
 
-# Hide the main Tkinter window
-Tk().withdraw()
+# Function to format the axis ticks for scatter plot
+def human_readable_format(x, pos):
+    if x >= 1e9:
+        return '{:1.1f}B'.format(x*1e-9)
+    elif x >= 1e6:
+        return '{:1.1f}M'.format(x*1e-6)
+    elif x >= 1e3:
+        return '{:1.1f}K'.format(x*1e-3)
+    return str(x)
 
-# Ask for file to open
+# Hide the root Tkinter window and prompt for a file selection
+root = Tk()
+root.withdraw()
 file_path = filedialog.askopenfilename()
 
-# Read data into a DataFrame
-data = pd.read_csv(file_path)
+# Read data
+df = pd.read_csv(file_path)
 
-# Display type, memory, and null info
-print(data.info())
+# Display DataFrame information
+print("DataFrame Information:")
+df.info()
 
-# Display unique values in each column
-print(data.nunique())
+# Number of unique values in each column
+print("\nNumber of unique values in each column:")
+print(df.nunique())
 
-# Display all rows of data that JupyterLab shows by default
-print(data)
+# Display default number of rows
+print("\nDefault displayed rows:")
+print(df)
 
-# Display the first and last five rows and columns of data
-print(data.iloc[:, :4].head())
-print(data.iloc[:, -4:].head())
-print(data.iloc[:, :4].tail())
-print(data.iloc[:, -4:].tail())
+# Display first and last five rows and first and last four columns
+print("\nFirst and last five rows, first and last four columns:")
+print(pd.concat([df.iloc[:5, :4], df.iloc[:5, -4:], df.iloc[-5:, :4], df.iloc[-5:, -4:]]))
 
-# Select three columns and display the first five rows
-selected_columns = data[['Date', 'AveragePrice', 'Total Volume']].head()
+# Access and display first five rows of three selected columns
+selected_columns = df[['Date', 'AveragePrice', 'Total Volume']].head()
+print("\nSelected columns first five rows:")
 print(selected_columns)
 
-# Access a column with dot notation
-print(data.AveragePrice.head())
+# Access one column using dot notation
+column_dot_notation = df.AveragePrice
+print("\nAccessed column using dot notation:")
+print(column_dot_notation.head())
 
-# Calculate EstimatedRevenue and display first five rows
-data['EstimatedRevenue'] = data['Total Volume'] * data['AveragePrice']
-print(data['EstimatedRevenue'].head())
+# Add new column and display first five rows
+df['EstimatedRevenue'] = df['Total Volume'] * df['AveragePrice']
+print("\nDataFrame with 'EstimatedRevenue' column:")
+print(df.head())
 
-# Group by region and type and calculate the mean of average price
-grouped_data = data.groupby(['region', 'type'])['AveragePrice'].mean().reset_index()
-print(grouped_data.head())
+# Group by 'region' and 'type' and calculate average price, then reset index
+grouped_df = df.groupby(['region', 'type']).AveragePrice.mean().reset_index()
+print("\nGrouped DataFrame with average price:")
+print(grouped_df.head())
 
-# Create a bar plot for the Total Volume by year
-data['year'] = pd.to_datetime(data['Date']).dt.year
-data_by_year = data.groupby('year')['Total Volume'].agg(['mean', 'median', 'std'])
-
-# Plotting
-data_by_year.plot(kind='bar', y='mean', color='blue', position=0, width=0.25, label='Mean')
-data_by_year.plot(kind='bar', y='median', color='orange', position=1, width=0.25, label='Median', ax=plt.gca())
-data_by_year.plot(kind='bar', y='std', color='green', position=2, width=0.25, label='Std Dev', ax=plt.gca())
-
-plt.legend()
-plt.yscale('log')  # Use a log scale for better visualization
-plt.xlabel('Year')
-plt.ylabel('Total Volume')
+# Bar plot of the mean, median, and standard deviation of the Total Volume by year
+df['Year'] = pd.DatetimeIndex(df['Date']).year
+volume_stats = df.groupby('Year')['Total Volume'].agg(['mean', 'median', 'std'])
+volume_stats.plot(kind='bar')
 plt.title('Total Volume Statistics by Year')
 plt.show()
 
-# Grouped data for bags
-grouped_bags = data.groupby('type')[['Small Bags', 'Large Bags', 'XLarge Bags']].sum()
-print(grouped_bags)
+# DataFrame with the total of bags grouped by type
+bags_df = df.groupby('type')[['Small Bags', 'Large Bags', 'XLarge Bags']].sum()
+print("\nDataFrame with total of bags grouped by type:")
+print(bags_df)
 
-# Bar plot for the bags
-grouped_bags.plot(kind='bar')
-plt.xlabel('Type')
-plt.ylabel('Number of Bags')
-plt.title('Number of Small, Large, and XLarge Bags by Type')
+# Bar plot for the number of bags by type
+bags_df.plot(kind='bar')
+plt.title('Number of Bags by Type')
 plt.show()
 
-# Scatter plot for Total Volume and AveragePrice
-plt.scatter(data['Total Volume'], data['AveragePrice'])
+# Scatter plot for the Total Volume and AveragePrice
+plt.figure(figsize=(10, 5))
+plt.scatter(df['Total Volume'], df['AveragePrice'])
+plt.title('Scatter Plot of Total Volume vs Average Price')
 plt.xlabel('Total Volume')
-plt.ylabel('AveragePrice')
-plt.title('Total Volume vs. AveragePrice')
+plt.ylabel('Average Price')
+
+# Apply human-readable formatting to the axis ticks
+ax = plt.gca()
+ax.xaxis.set_major_formatter(ticker.FuncFormatter(human_readable_format))
+ax.yaxis.set_major_formatter(ticker.FuncFormatter(human_readable_format))
+
 plt.show()
