@@ -1,67 +1,90 @@
-
-import csv
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 from tkinter import filedialog
 from tkinter import Tk
-import matplotlib.pyplot as plt
-from collections import defaultdict
 
-# Open dialog to choose CSV file
-Tk().withdraw()
+# Function to format the axis ticks for scatter plot
+def human_readable_format(x, pos):
+    if x >= 1e9:
+        return '{:1.1f}B'.format(x*1e-9)
+    elif x >= 1e6:
+        return '{:1.1f}M'.format(x*1e-6)
+    elif x >= 1e3:
+        return '{:1.1f}K'.format(x*1e-3)
+    return str(x)
+
+# Hide the root Tkinter window and prompt for a file selection
+root = Tk()
+root.withdraw()
 file_path = filedialog.askopenfilename()
 
-# Read CSV file into a list of dictionaries
-with open(file_path, 'r') as file:
-    reader = csv.DictReader(file)
-    data = [row for row in reader]
+# Read data
+df = pd.read_csv(file_path)
 
-# Display the number of unique values in each column
-unique_values = {field: len(set([row[field] for row in data])) for field in reader.fieldnames}
-print("Unique values for each column:", unique_values)
+# Display DataFrame information
+print("DataFrame Information:")
+df.info()
 
-# Display all rows of data that Python displays by default
-print("All rows of data:", data)
+# Number of unique values in each column
+print("\nNumber of unique values in each column:")
+print(df.nunique())
+
+# Display default number of rows
+print("\nDefault displayed rows:")
+print(df)
 
 # Display first and last five rows and first and last four columns
-print("First 5 rows:", data[:5])
-print("Last 5 rows:", data[-5:])
-print("First 4 columns:", [{k: v for k, v in list(row.items())[:4]} for row in data])
-print("Last 4 columns:", [{k: v for k, v in list(row.items())[-4:]} for row in data])
+print("\nFirst and last five rows, first and last four columns:")
+print(pd.concat([df.iloc[:5, :4], df.iloc[:5, -4:], df.iloc[-5:, :4], df.iloc[-5:, -4:]]))
 
-# Access and display first five rows of any three columns
-selected_columns = [(data[i]['Date'], data[i]['AveragePrice'], data[i]['Total Volume']) for i in range(5)]
-print("Selected columns:", selected_columns)
+# Access and display first five rows of three selected columns
+selected_columns = df[['Date', 'AveragePrice', 'Total Volume']].head()
+print("\nSelected columns first five rows:")
+print(selected_columns)
 
-# Access one column with dot notation
-total_volume_column = [float(row['Total Volume']) for row in data]
+# Access one column using dot notation
+column_dot_notation = df.AveragePrice
+print("\nAccessed column using dot notation:")
+print(column_dot_notation.head())
 
-# Multiply Total Volume and AveragePrice and store in new column
-for row in data:
-    row['EstimatedRevenue'] = float(row['Total Volume']) * float(row['AveragePrice'])
+# Add new column and display first five rows
+df['EstimatedRevenue'] = df['Total Volume'] * df['AveragePrice']
+print("\nDataFrame with 'EstimatedRevenue' column:")
+print(df.head())
 
-print("First 5 rows with EstimatedRevenue:", data[:5])
+# Group by 'region' and 'type' and calculate average price, then reset index
+grouped_df = df.groupby(['region', 'type']).AveragePrice.mean().reset_index()
+print("\nGrouped DataFrame with average price:")
+print(grouped_df.head())
 
-# Group by region and type and calculate average price
-grouped_data = defaultdict(list)
-for row in data:
-    grouped_data[(row['region'], row['type'])].append(float(row['AveragePrice']))
-
-average_prices = {(region, type_): sum(prices) / len(prices) for (region, type_), prices in grouped_data.items()}
-print("Average prices by region and type:", average_prices)
-
-# Display mean, median, and standard deviation of Total Volume by year
-years = list(set(row['year'] for row in data))
-yearly_volumes = {year: [float(row['Total Volume']) for row in data if row['year'] == year] for year in years}
-
-means = {year: sum(volumes) / len(volumes) for year, volumes in yearly_volumes.items()}
-medians = {year: sorted(volumes)[len(volumes) // 2] for year, volumes in yearly_volumes.items()}
-std_devs = {year: (sum([(v - means[year]) ** 2 for v in volumes]) / len(volumes)) ** 0.5 for year, volumes in yearly_volumes.items()}
-
-plt.bar(years, means.values(), label='Mean')
-plt.bar(years, medians.values(), label='Median', bottom=list(means.values()))
-plt.bar(years, std_devs.values(), label='Std Dev', bottom=[means[year] + medians[year] for year in years])
-plt.legend()
+# Bar plot of the mean, median, and standard deviation of the Total Volume by year
+df['Year'] = pd.DatetimeIndex(df['Date']).year
+volume_stats = df.groupby('Year')['Total Volume'].agg(['mean', 'median', 'std'])
+volume_stats.plot(kind='bar')
+plt.title('Total Volume Statistics by Year')
 plt.show()
 
+# DataFrame with the total of bags grouped by type
+bags_df = df.groupby('type')[['Small Bags', 'Large Bags', 'XLarge Bags']].sum()
+print("\nDataFrame with total of bags grouped by type:")
+print(bags_df)
 
+# Bar plot for the number of bags by type
+bags_df.plot(kind='bar')
+plt.title('Number of Bags by Type')
+plt.show()
 
+# Scatter plot for the Total Volume and AveragePrice
+plt.figure(figsize=(10, 5))
+plt.scatter(df['Total Volume'], df['AveragePrice'])
+plt.title('Scatter Plot of Total Volume vs Average Price')
+plt.xlabel('Total Volume')
+plt.ylabel('Average Price')
 
+# Apply human-readable formatting to the axis ticks
+ax = plt.gca()
+ax.xaxis.set_major_formatter(ticker.FuncFormatter(human_readable_format))
+ax.yaxis.set_major_formatter(ticker.FuncFormatter(human_readable_format))
+
+plt.show()
